@@ -1,0 +1,6 @@
+#!/bin/bash
+
+for repo in $*
+do
+    echo $repo >> repositories
+done

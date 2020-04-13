@@ -1,0 +1,69 @@
+#!/bin/bash
+
+function isFeedAlreadyInSources(){
+    local sources=`dotnet nuget list source`
+    local isFeedAlreadyIncluded=0
+
+    for source in $sources
+    do
+        if [ $source == "http://localhost:5555/v3/index.json" ]
+        then
+            isFeedAlreadyIncluded=1
+        fi
+    done
+
+    return isFeedAlreadyInSources
+}
+
+function getProjects(){
+    local projects=()
+    mapfile -t projects < repositories
+
+    echo $projects
+}
+
+if [ "$1" != "" ]; then
+    mkdir -p baget-data
+    mkdir -p nupkgs
+    echo -e "Pulling nuget server from docker registry"
+    docker pull loicsharma/baget
+
+    echo -e "\nStoping existing nuget-feed"
+    docker stop nuget-server || true
+
+    echo -e "\nStarting nuget server"
+    dataPath="/$PWD/baget-data/://var/baget"
+
+    docker run -d --rm --name nuget-server -p 5555:80 --env ApiKey=$1 --env-file baget.env -v $dataPath loicsharma/baget:latest &
+    sleep 4
+
+    if [ "$isFeedAlreadyInSources" == "1" ]
+    then
+        echo -e "\nAdding feed to sources"
+        dotnet nuget add source http://localhost:5555/v3/index.json -n bol-feed
+    else
+        echo -e "\nFeed already in sources."
+    fi
+    
+    projects=$(getProjects)
+
+    for project in $projects
+    do
+        echo -e "Packing $project\n"
+        dotnet build $project -c Release
+        dotnet pack $project --no-build --output ./nupkgs/
+    done
+
+    echo -e "Pushing packages in ./nupkgs\n"
+
+    files=`ls nupkgs/`
+    currentDir=`pwd`
+
+    for file in $files
+    do
+        file=$currentDir"/nupkgs/"$file
+        dotnet nuget push $file -s http://localhost:5555/v3/index.json -k $1 --skip-duplicate
+    done
+else
+    echo -e "You should provide an ApiKey for your local feed in the first parameter.\n "
+fi
