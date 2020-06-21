@@ -15,7 +15,7 @@ The script creates a container which contains a nuget server, it adds the nuget 
 ```
 1. git clone https://github.com/amoraitis/scripts.git
 2. cd scripts/nuget-repo
-3. repos=(your project dirs here) // space separated dirsof containing a .csproj
+3. repos=(your project dirs here) // space separated dirs of containing a .csproj
 4. ./add-repos ${repos[@]}
 5. ./start-and-push YOUR_API_KEY_HERE
 ```

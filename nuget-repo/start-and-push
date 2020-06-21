@@ -22,19 +22,32 @@ function getProjects(){
     echo $projects
 }
 
+function getPackageName(){
+    # read: first parameter is the delimititer and the second is the package path.
+    # 3rd is for go-back
+    IFS=$1 # hyphen (-) is set as delimiter
+    read -ra ADDR <<< $2 # str is read into an array as tokens separated by IFS
+    IFS=' ' # reset to default value after usage
+    echo ${ADDR[$3]};
+}
+
 if [ "$1" != "" ]; then
+    echo -e Cleaning up and initializing dependencies...
+    rm -rf baget-data
+    rm -rf nupkgs
     mkdir -p baget-data
     mkdir -p nupkgs
-    echo -e "Pulling nuget server from docker registry"
+
+    echo -e "\nPulling nuget server from docker registry"
     docker pull loicsharma/baget
 
-    echo -e "\nStoping existing nuget-feed"
-    docker stop nuget-server || true
+    echo -e "\nStoping and deleting existing nuget-feed"
+    docker rm --force nuget-server || true
 
     echo -e "\nStarting nuget server"
     dataPath="/$PWD/baget-data/://var/baget"
 
-    docker run -d --rm --name nuget-server -p 5555:80 --env ApiKey=$1 --env-file baget.env -v $dataPath loicsharma/baget:latest &
+    docker run -d --rm --name nuget-server -p 5555:5000 --env ApiKey=$1 --env-file baget.env -v $dataPath loicsharma/baget:latest &
     sleep 4
 
     if [ "$isFeedAlreadyInSources" == "1" ]
@@ -50,19 +63,20 @@ if [ "$1" != "" ]; then
     for project in $projects
     do
         echo -e "Packing $project\n"
-        dotnet build $project -c Release
+        dotnet build $project -c Debug
         dotnet pack $project --no-build --output ./nupkgs/
     done
 
-    echo -e "Pushing packages in ./nupkgs\n"
+    echo -e "\nPushing packages in ./nupkgs\n"
 
     files=`ls nupkgs/`
     currentDir=`pwd`
 
-    for file in $files
+    for i in ${!files[@]};
     do
-        file=$currentDir"/nupkgs/"$file
-        dotnet nuget push $file -s http://localhost:5555/v3/index.json -k $1 --skip-duplicate
+        file=$currentDir"/nupkgs/"${files[$i]}
+        echo -e Pushing new package for file $file
+        nuget push $file -Source http://localhost:5555/v3/index.json -ApiKey $1
     done
 else
     echo -e "You should provide an ApiKey for your local feed in the first parameter.\n "
