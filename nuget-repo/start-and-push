@@ -47,7 +47,7 @@ if [ "$1" != "" ]; then
     echo -e "\nStarting nuget server"
     dataPath="/$PWD/baget-data/://var/baget"
 
-    docker run -d --rm --name nuget-server -p 5555:5000 --env ApiKey=$1 --env-file baget.env -v $dataPath loicsharma/baget:latest &
+    docker run -d --rm --name nuget-server -p 5555:80 --env ApiKey=$1 --env-file baget.env -v $dataPath loicsharma/baget:latest &
     sleep 4
 
     if [ "$isFeedAlreadyInSources" == "1" ]
